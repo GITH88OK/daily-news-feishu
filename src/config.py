@@ -13,9 +13,6 @@ FEISHU_WEBHOOK_URL = os.getenv("FEISHU_WEBHOOK_URL", "")
 # ── 天行数据 API（可选兜底） ──
 TIANAPI_KEY = os.getenv("TIANAPI_KEY", "")
 
-# ── RSSHub 实例（可自建，默认用官方） ──
-RSSHUB_BASE = os.getenv("RSSHUB_BASE", "https://rsshub.app")
-
 # ── 新闻获取数量 ──
 MAX_NEWS_PER_CATEGORY = 5
 
@@ -26,66 +23,91 @@ TIMEZONE = "Asia/Shanghai"
 # ── HTTP 请求配置 ──
 REQUEST_TIMEOUT = 20  # 秒
 HEADERS = {
-    "User-Agent": "DailyNewsFeishu/2.0 (RSS Aggregator; GitHub Actions)"
+    "User-Agent": (
+        "Mozilla/5.0 (compatible; DailyNewsBot/3.0; +https://github.com/news-bot)"
+    )
 }
+
+# ── RSSHub 多镜像（按优先级排序，一个不通自动换下一个） ──
+# 自建实例最稳定，建议有条件时用环境变量 RSSHUB_BASE 指向自建地址
+_custom_rsshub = os.getenv("RSSHUB_BASE", "")
+RSSHUB_MIRRORS = [_custom_rsshub] if _custom_rsshub else []
+RSSHUB_MIRRORS += [
+    "https://rsshub.rssforever.com",
+    "https://rsshub.cry33.com",
+    "https://rsshub.feeded.xyz",
+    "https://rsshub.app",               # 官方实例，放最后
+]
+
+# ── Google News RSS 基础 URL ──
+# Google News 从全球任何地方都能稳定访问，聚合多源新闻，支持中文
+GOOGLE_NEWS_BASE = "https://news.google.com/rss"
 
 # ── 各分类 RSS 源配置 ──
-# 每个分类配置多个源，按优先级排序，失败时自动切换下一个
+# 策略：直连RSS（最可靠）→ Google News（稳定聚合）→ RSSHub镜像（补充）
+# 格式：{"url": "url或{rsshub}占位", "name": "来源名", "via": "direct|google|rsshub"}
 RSS_SOURCES = {
     "domestic": [
-        # 国内时事政治
-        {"url": f"{RSSHUB_BASE}/thepaper/featured",       "name": "澎湃新闻精选"},
-        {"url": f"{RSSHUB_BASE}/cctv/world",              "name": "央视新闻"},
-        {"url": f"{RSSHUB_BASE}/people/xjp",              "name": "人民网"},
-        {"url": f"{RSSHUB_BASE}/huanqiu/china",           "name": "环球网"},
-        {"url": f"{RSSHUB_BASE}/cls/telegraph",           "name": "财联社快讯"},
+        # ★ 直连 RSS（不经过任何中间服务）
+        {"url": "https://feeds.bbci.co.uk/zhongwen/simp/rss", "name": "BBC中文", "via": "direct"},
+        # ★ Google News 中国版（最稳定的中文新闻聚合）
+        {"url": f"{GOOGLE_NEWS_BASE}/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNRE55TXpBU0JYcG9MVlJYS0FBUAE?hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-中国", "via": "direct"},
+        # ★ RSSHub 镜像（通过多镜像轮换）
+        {"url": "{rsshub}/thepaper/featured",  "name": "澎湃新闻精选", "via": "rsshub"},
+        {"url": "{rsshub}/people/xjp",         "name": "人民网", "via": "rsshub"},
+        {"url": "{rsshub}/huanqiu/china",      "name": "环球网", "via": "rsshub"},
     ],
     "world": [
-        # 国际时事政治
-        {"url": "https://feeds.bbci.co.uk/zhongwen/simp/rss", "name": "BBC中文"},
-        {"url": f"{RSSHUB_BASE}/huanqiu/global",              "name": "环球网国际"},
-        {"url": f"{RSSHUB_BASE}/voa/chinese",                 "name": "VOA中文"},
-        {"url": f"{RSSHUB_BASE}/nytimes/dual",                "name": "纽约时报双语"},
+        {"url": "https://feeds.bbci.co.uk/zhongwen/simp/rss", "name": "BBC中文", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0JYcG9MVlJYS0FBUAE?hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-国际", "via": "direct"},
+        {"url": "{rsshub}/huanqiu/global",     "name": "环球网国际", "via": "rsshub"},
+        {"url": "{rsshub}/nytimes/dual",       "name": "纽约时报双语", "via": "rsshub"},
     ],
     "finance": [
-        # 经济动态
-        {"url": f"{RSSHUB_BASE}/wallstreetcn/global",    "name": "华尔街见闻"},
-        {"url": f"{RSSHUB_BASE}/36kr/motif/最新",        "name": "36氪"},
-        {"url": f"{RSSHUB_BASE}/cls/telegraph",           "name": "财联社电报"},
-        {"url": f"{RSSHUB_BASE}/caixin/latest",           "name": "财新网"},
-        {"url": f"{RSSHUB_BASE}/yicai/brief",             "name": "第一财经"},
+        # ★ 36氪直连 RSS
+        {"url": "https://36kr.com/feed",       "name": "36氪", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx6TVdZU0JYcG9MVlJYS0FBUAE?hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-财经", "via": "direct"},
+        {"url": "{rsshub}/wallstreetcn/global","name": "华尔街见闻", "via": "rsshub"},
+        {"url": "{rsshub}/cls/telegraph",      "name": "财联社电报", "via": "rsshub"},
+        {"url": "{rsshub}/yicai/brief",        "name": "第一财经", "via": "rsshub"},
     ],
     "career": [
-        # 就业资讯
-        {"url": f"{RSSHUB_BASE}/gov/mohrss/sy",          "name": "人社部"},
-        {"url": f"{RSSHUB_BASE}/weibo/search/hot=就业",  "name": "微博就业话题"},
-        {"url": f"{RSSHUB_BASE}/36kr/search/就业",       "name": "36氪就业"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=就业+招聘+求职&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-就业", "via": "direct"},
+        {"url": "{rsshub}/gov/mohrss/sy",      "name": "人社部", "via": "rsshub"},
+        {"url": "{rsshub}/weibo/search/hot=就业招聘", "name": "微博就业", "via": "rsshub"},
     ],
     "workplace": [
-        # 职场动态
-        {"url": f"{RSSHUB_BASE}/huxiu/channel/职场",    "name": "虎嗅职场"},
-        {"url": f"{RSSHUB_BASE}/woshipm/popular",        "name": "人人都是产品经理"},
-        {"url": f"{RSSHUB_BASE}/zhihu/daily",            "name": "知乎日报"},
+        {"url": "https://www.huxiu.com/rss/0.xml", "name": "虎嗅网", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=职场+工作+管理&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-职场", "via": "direct"},
+        {"url": "{rsshub}/woshipm/popular",    "name": "人人都是产品经理", "via": "rsshub"},
+        {"url": "{rsshub}/zhihu/daily",        "name": "知乎日报", "via": "rsshub"},
     ],
     "food": [
-        # 美食推荐
-        {"url": f"{RSSHUB_BASE}/xiachufang/popular",     "name": "下厨房热门"},
-        {"url": f"{RSSHUB_BASE}/meishitianxia/tag/家常菜", "name": "美食天下"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=美食+菜谱+烹饪&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-美食", "via": "direct"},
+        {"url": "{rsshub}/xiachufang/popular", "name": "下厨房热门", "via": "rsshub"},
+        {"url": "{rsshub}/meishitianxia/tag/家常菜", "name": "美食天下", "via": "rsshub"},
     ],
     "travel": [
-        # 旅游资讯
-        {"url": f"{RSSHUB_BASE}/mafengwo/note",          "name": "马蜂窝游记"},
-        {"url": f"{RSSHUB_BASE}/qyer/recommend",         "name": "穷游网推荐"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=旅游+旅行+攻略&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-旅游", "via": "direct"},
+        {"url": "{rsshub}/mafengwo/note",      "name": "马蜂窝游记", "via": "rsshub"},
+        {"url": "{rsshub}/qyer/recommend",     "name": "穷游网推荐", "via": "rsshub"},
     ],
     "fitness": [
-        # 健身健康
-        {"url": f"{RSSHUB_BASE}/zhihu/topic/19551207",   "name": "知乎健身"},
-        {"url": f"{RSSHUB_BASE}/dxy/health",             "name": "丁香医生"},
-        {"url": f"{RSSHUB_BASE}/keep/latest",            "name": "Keep精选"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=健身+运动+健康+减肥&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-健身", "via": "direct"},
+        {"url": "{rsshub}/zhihu/topic/19551207", "name": "知乎健身", "via": "rsshub"},
+        {"url": "{rsshub}/dxy/health",         "name": "丁香医生", "via": "rsshub"},
     ],
 }
 
-# ── 关键词过滤（就业/职场/健身的精确匹配） ──
+# ── 关键词过滤 ──
 CATEGORY_KEYWORDS = {
     "career": [
         "就业", "招聘", "求职", "岗位", "人才", "毕业生", "薪资",
@@ -104,12 +126,12 @@ CATEGORY_KEYWORDS = {
     ],
 }
 
-# ── RSS 不可用时的静态备用内容 ──
+# ── 静态备用内容 ──
 FALLBACK_NEWS = {
     "domestic": [
-        {"title": "📌 RSS源暂时不可用，请稍后刷新", "url": "", "source": "系统提示"},
+        {"title": "📌 今日RSS源响应较慢，建议稍后手动刷新", "url": "", "source": "系统提示"},
     ],
     "world": [
-        {"title": "📌 RSS源暂时不可用，请稍后刷新", "url": "", "source": "系统提示"},
+        {"title": "📌 今日RSS源响应较慢，建议稍后手动刷新", "url": "", "source": "系统提示"},
     ],
 }

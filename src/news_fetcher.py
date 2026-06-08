@@ -1,9 +1,12 @@
 """
-新闻获取模块 - RSS 多源聚合（主力）
-支持 RSS 2.0 / Atom 格式解析，自动去重、多源容错
-天行数据 API 作为可选兜底
+新闻获取模块 - RSS 多源聚合引擎 v3.0
+- 直连 RSS（最可靠）
+- Google News RSS（全球可访问的中文新闻聚合）
+- RSSHub 多镜像轮换（一个不通自动换下一个）
+- 天行数据兜底（可选）
 """
 import hashlib
+import re
 from datetime import datetime
 from difflib import SequenceMatcher
 
@@ -12,6 +15,7 @@ import requests
 
 from config import (
     RSS_SOURCES,
+    RSSHUB_MIRRORS,
     MAX_NEWS_PER_CATEGORY,
     CATEGORY_KEYWORDS,
     FALLBACK_NEWS,
@@ -21,138 +25,158 @@ from config import (
 )
 
 
-# ── 工具函数 ──
+# ═══════════════════════════════════════════════════════════════
+#  工具函数
+# ═══════════════════════════════════════════════════════════════
 
-def _similar(a: str, b: str, threshold: float = 0.75) -> bool:
-    """判断两个标题是否相似（用于去重）"""
+def _strip_html(text: str) -> str:
+    """去除 HTML 标签和多余空白"""
+    clean = re.sub(r"<[^>]+>", "", text)
+    clean = re.sub(r"&[a-z]+;", " ", clean)
+    clean = re.sub(r"\s+", " ", clean)
+    return clean.strip()
+
+
+def _similar(a: str, b: str, threshold: float = 0.72) -> bool:
+    """判断两个标题是否相似（去重用）"""
     if not a or not b:
         return False
-    # 快速路径：其中一个包含另一个
+    # 快速路径：短标题完全包含
     short, long = (a, b) if len(a) <= len(b) else (b, a)
-    if len(short) >= 6 and short[:6] in long:
+    if len(short) >= 8 and short[:8] in long:
         return True
-    return SequenceMatcher(None, a[:60], b[:60]).ratio() >= threshold
+    return SequenceMatcher(None, a[:80], b[:80]).ratio() >= threshold
 
 
 def _title_hash(title: str) -> str:
-    """标题的短哈希，用于快速去重"""
-    return hashlib.md5(title[:80].encode()).hexdigest()[:12]
+    """标题短哈希，快速去重"""
+    return hashlib.md5(title[:100].encode()).hexdigest()[:12]
 
 
-def _fetch_rss(url: str) -> list[dict]:
+def _try_fetch_url(url: str) -> list[dict]:
     """
-    获取并解析单个 RSS 源
-    返回: [{"title": str, "url": str, "source": str, "summary": str}, ...]
+    请求单个 URL 并解析 RSS/Atom
+    返回: [{"title", "url", "source", "summary"}, ...]
     """
     try:
-        resp = requests.get(url, headers=HEADERS, timeout=REQUEST_TIMEOUT, allow_redirects=True)
+        resp = requests.get(
+            url, headers=HEADERS, timeout=REQUEST_TIMEOUT,
+            allow_redirects=True
+        )
         resp.raise_for_status()
 
-        # feedparser 可以直接解析字符串
         feed = feedparser.parse(resp.content)
 
+        # bozo=1 表示非标准 feed，但有 entries 就还能用
         if feed.bozo and not feed.entries:
-            print(f"      [WARN] RSS 解析异常: {feed.bozo_exception}")
+            # 静默失败，外层会尝试下一个源
             return []
 
         entries = []
         for item in feed.entries:
-            title = (item.get("title") or "").strip()
-            if not title:
+            title = _strip_html(item.get("title") or "")
+            if not title or len(title) < 4:
                 continue
 
-            # 清理 HTML 标签
-            title = _strip_html(title)
-
-            # 获取链接
+            # URL
             link = item.get("link", "")
             if not link:
                 links = item.get("links", [])
                 link = links[0].get("href", "") if links else ""
 
-            # 获取摘要
+            # 摘要
             summary = _strip_html(
                 item.get("summary") or
                 item.get("description") or
-                item.get("content", [{}])[0].get("value", "") if item.get("content") else ""
-            )
-            # 截断摘要
-            summary = summary[:200] if summary else ""
+                (item.get("content", [{}])[0].get("value", "") if item.get("content") else "")
+            )[:200]
 
-            # 获取来源名
+            # 来源
             source = ""
-            if hasattr(item, "source"):
-                source = item.source.get("title", "") if item.source else ""
+            if hasattr(item, "source") and item.source:
+                source = item.source.get("title", "")
             if not source:
                 source = feed.feed.get("title", "")
 
             entries.append({
                 "title": title,
                 "url": link,
-                "source": source.strip(),
+                "source": _strip_html(source),
                 "summary": summary,
             })
 
         return entries
 
-    except requests.RequestException as e:
-        print(f"      [WARN] 网络请求失败: {e}")
+    except requests.RequestException:
         return []
-    except Exception as e:
-        print(f"      [WARN] 解析失败: {e}")
+    except Exception:
         return []
 
 
-def _strip_html(text: str) -> str:
-    """去除 HTML 标签和多余空白"""
-    import re
-    clean = re.sub(r"<[^>]+>", "", text)
-    clean = re.sub(r"\s+", " ", clean)
-    return clean.strip()
+# ═══════════════════════════════════════════════════════════════
+#  RSSHub 多镜像轮换
+# ═══════════════════════════════════════════════════════════════
+
+def _fetch_via_rsshub(path: str) -> list[dict]:
+    """
+    通过 RSSHub 获取内容，自动轮换多个镜像
+    path 格式: "/thepaper/featured"（不含域名）
+    """
+    for i, mirror in enumerate(RSSHUB_MIRRORS):
+        url = f"{mirror}{path}"
+        print(f"         🔗 尝试 RSSHub 镜像{i+1}: {mirror[:35]}...")
+        entries = _try_fetch_url(url)
+        if entries:
+            print(f"         ✅ 成功 ({len(entries)} 条)")
+            return entries
+        print(f"         ❌ 无响应")
+    return []
 
 
-def _deduplicate(entries: list[dict], seen: set) -> list[dict]:
-    """去重：去除与 seen 中相似的内容和自身重复"""
+# ═══════════════════════════════════════════════════════════════
+#  去重 & 过滤
+# ═══════════════════════════════════════════════════════════════
+
+def _deduplicate(entries: list[dict], seen_titles: set) -> list[dict]:
+    """去重：标题相似度 + 哈希双重检测"""
     result = []
-    hashes = set()
+    local_hashes = set()
     for entry in entries:
         h = _title_hash(entry["title"])
-        if h in hashes:
+        if h in local_hashes:
             continue
-        # 检查与已收录内容的相似度
-        is_dup = False
-        for existing_title in seen:
-            if _similar(entry["title"], existing_title):
-                is_dup = True
+        dup = False
+        for existing in seen_titles:
+            if _similar(entry["title"], existing):
+                dup = True
                 break
-        if is_dup:
+        if dup:
             continue
-        hashes.add(h)
-        seen.add(entry["title"])
+        local_hashes.add(h)
+        seen_titles.add(entry["title"])
         result.append(entry)
     return result
 
 
 def _filter_keywords(entries: list[dict], keywords: list[str]) -> list[dict]:
-    """按关键词筛选（用于就业/职场/健身等分类）"""
+    """按关键词筛选"""
     if not keywords:
         return entries
     return [e for e in entries if any(kw in e["title"] for kw in keywords)]
 
 
-# ── 分类获取函数 ──
+# ═══════════════════════════════════════════════════════════════
+#  单个分类获取
+# ═══════════════════════════════════════════════════════════════
 
-def _fetch_category(category: str, use_keywords: bool = False, use_tianapi_fallback: bool = True) -> list[dict]:
+def _fetch_category(category: str, use_keywords: bool = False) -> list[dict]:
     """
-    通用分类获取：遍历该分类的所有 RSS 源，收集到足够数量后返回
-
-    Args:
-        category: 分类key（对应 RSS_SOURCES 中的key）
-        use_keywords: 是否对结果做关键词过滤
-        use_tianapi_fallback: RSS失败时是否用天行数据兜底
-
-    Returns:
-        [{"title": str, "url": str, "source": str}, ...]
+    获取一个分类的新闻：
+    1. 遍历所有配置的源（直连 → Google News → RSSHub镜像）
+    2. 去重
+    3. 关键词过滤（就业/职场/健身）
+    4. 不够的话天行数据兜底
+    5. 还不够用静态备用
     """
     sources = RSS_SOURCES.get(category, [])
     keywords = CATEGORY_KEYWORDS.get(category, []) if use_keywords else []
@@ -164,28 +188,42 @@ def _fetch_category(category: str, use_keywords: bool = False, use_tianapi_fallb
         if len(all_entries) >= MAX_NEWS_PER_CATEGORY:
             break
 
-        print(f"      📡 {src['name']} ({src['url'][:60]}...)")
-        entries = _fetch_rss(src["url"])
+        name = src["name"]
+        via = src.get("via", "rsshub")
+        url_tpl = src["url"]
+
+        print(f"      📡 [{via.upper()}] {name}")
+
+        if via == "direct":
+            # 直连 RSS（BBC、Google News、36kr 等）
+            entries = _try_fetch_url(url_tpl)
+
+        elif via == "rsshub":
+            # RSSHub 路径，走多镜像轮换
+            path = url_tpl.replace("{rsshub}", "")
+            entries = _fetch_via_rsshub(path)
+
+        else:
+            entries = _try_fetch_url(url_tpl)
 
         if entries:
             # 关键词过滤
             if keywords and category in ("career", "workplace", "fitness"):
-                filtered = _filter_keywords(entries, keywords)
-                print(f"         → 获取 {len(entries)} 条，关键词匹配 {len(filtered)} 条")
-                entries = filtered
+                before = len(entries)
+                entries = _filter_keywords(entries, keywords)
+                print(f"         → 获取 {before} 条，关键词匹配 {len(entries)} 条")
 
             new_entries = _deduplicate(entries, seen_titles)
             all_entries.extend(new_entries)
-            print(f"         → 去重后新增 {len(new_entries)} 条")
+            print(f"         → 去重后新增 {len(new_entries)} 条 (累计 {len(all_entries)})")
         else:
-            print(f"         → 无数据，切换下一个源")
+            print(f"         → 无数据")
 
-    # 如果RSS源全部失败，尝试天行数据兜底
-    if not all_entries and use_tianapi_fallback and TIANAPI_KEY:
-        print(f"      🔄 RSS全部失败，尝试天行数据兜底...")
+    # ── 兜底策略 ──
+    if not all_entries and TIANAPI_KEY:
+        print(f"      🔄 全部RSS源失败，尝试天行数据兜底...")
         all_entries = _tianapi_fallback(category)
 
-    # 仍然没有数据，使用静态备用
     if not all_entries:
         fallback = FALLBACK_NEWS.get(category, [])
         if fallback:
@@ -196,8 +234,7 @@ def _fetch_category(category: str, use_keywords: bool = False, use_tianapi_fallb
 
 
 def _tianapi_fallback(category: str) -> list[dict]:
-    """天行数据兜底 - 仅在RSS完全失败时调用"""
-    # 分类到天行数据端点的映射
+    """天行数据兜底"""
     endpoint_map = {
         "domestic": "/guonei/index",
         "world": "/world/index",
@@ -214,12 +251,14 @@ def _tianapi_fallback(category: str) -> list[dict]:
 
     try:
         url = f"https://apis.tianapi.com{endpoint}"
-        resp = requests.get(url, params={"key": TIANAPI_KEY, "num": MAX_NEWS_PER_CATEGORY},
-                          headers=HEADERS, timeout=REQUEST_TIMEOUT)
+        resp = requests.get(
+            url,
+            params={"key": TIANAPI_KEY, "num": MAX_NEWS_PER_CATEGORY},
+            headers=HEADERS, timeout=REQUEST_TIMEOUT
+        )
         data = resp.json()
         if data.get("code") != 200:
             return []
-
         result_data = data.get("result", {})
         news_list = result_data.get("newslist") or result_data.get("list") or []
         return [
@@ -232,61 +271,66 @@ def _tianapi_fallback(category: str) -> list[dict]:
             if (item.get("title") or item.get("hotword"))
         ]
     except Exception as e:
-        print(f"      天行数据兜底也失败: {e}")
+        print(f"      天行数据兜底失败: {e}")
         return []
 
 
-# ── 各分类入口 ──
+# ═══════════════════════════════════════════════════════════════
+#  各分类入口
+# ═══════════════════════════════════════════════════════════════
 
 def fetch_domestic_news() -> list[dict]:
-    """🏛️ 国内时事政治 - RSS多源聚合"""
+    """🏛️ 国内时事政治"""
     return _fetch_category("domestic")
 
 
 def fetch_world_news() -> list[dict]:
-    """🌍 国际时事政治 - RSS + BBC中文等"""
+    """🌍 国际时事政治"""
     return _fetch_category("world")
 
 
 def fetch_finance_news() -> list[dict]:
-    """💰 经济动态 - 财联社/36氪/第一财经"""
+    """💰 经济动态"""
     return _fetch_category("finance")
 
 
 def fetch_career_news() -> list[dict]:
-    """💼 就业资讯 - RSS获取 + 关键词过滤"""
+    """💼 就业资讯"""
     return _fetch_category("career", use_keywords=True)
 
 
 def fetch_workplace_news() -> list[dict]:
-    """🏢 职场动态 - RSS获取 + 关键词过滤"""
+    """🏢 职场动态"""
     return _fetch_category("workplace", use_keywords=True)
 
 
 def fetch_food_news() -> list[dict]:
-    """🍜 美食推荐 - 下厨房/美食天下"""
+    """🍜 美食推荐"""
     return _fetch_category("food")
 
 
 def fetch_travel_news() -> list[dict]:
-    """✈️ 旅游资讯 - 马蜂窝/穷游网"""
+    """✈️ 旅游资讯"""
     return _fetch_category("travel")
 
 
 def fetch_fitness_news() -> list[dict]:
-    """💪 健身健康 - 知乎健身/丁香医生 + 关键词过滤"""
+    """💪 健身健康"""
     return _fetch_category("fitness", use_keywords=True)
 
 
-# ── 统一入口 ──
+# ═══════════════════════════════════════════════════════════════
+#  统一入口
+# ═══════════════════════════════════════════════════════════════
 
 def fetch_all_news() -> dict:
-    """
-    获取所有分类新闻
-    返回: {category_key: [{"title", "url", "source"}, ...], ...}
-    """
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 📡 开始 RSS 新闻采集...")
-    print(f"   数据源: RSSHub ({len(RSS_SOURCES)} 个分类, 共 {sum(len(v) for v in RSS_SOURCES.values())} 个RSS源)")
+    """获取全部8个分类的新闻"""
+    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    total_sources = sum(len(v) for v in RSS_SOURCES.values())
+    print(f"[{now}] 📡 开始 RSS 新闻采集")
+    print(f"   RSSHub 镜像: {len(RSSHUB_MIRRORS)} 个")
+    print(f"   分类: {len(RSS_SOURCES)} 个 | 总RSS源: {total_sources} 个")
+    print(f"   天行数据兜底: {'✅ 已配置' if TIANAPI_KEY else '❌ 未配置'}")
     print()
 
     categories = {
@@ -313,5 +357,5 @@ def fetch_all_news() -> dict:
             print(f"    ❌ 异常: {e}\n")
             result[key] = FALLBACK_NEWS.get(key, [])
 
-    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] 采集完成，共 {total} 条新闻")
+    print(f"[{datetime.now().strftime('%Y-%m-%d %H:%M:%S')}] ✅ 采集完成，共 {total} 条新闻")
     return result
