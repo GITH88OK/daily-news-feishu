@@ -48,12 +48,14 @@ GOOGLE_NEWS_BASE = "https://news.google.com/rss"
 # 格式：{"url": "url或{rsshub}占位", "name": "来源名", "via": "direct|google|rsshub"}
 RSS_SOURCES = {
     "domestic": [
-        # ★ 直连 RSS（不经过任何中间服务）
-        {"url": "https://feeds.bbci.co.uk/zhongwen/simp/rss", "name": "BBC中文", "via": "direct"},
-        # ★ Google News 中国版（最稳定的中文新闻聚合）
-        {"url": f"{GOOGLE_NEWS_BASE}/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNRE55TXpBU0JYcG9MVlJYS0FBUAE?hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
-         "name": "Google新闻-中国", "via": "direct"},
-        # ★ RSSHub 镜像（通过多镜像轮换）
+        # ★ 直连 Google News 多角度搜索（最稳定，自动聚合最新新闻）
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=中国+国内+时政&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-国内时政", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=政治+政策+改革+发展&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-政治政策", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=社会+民生+教育+医疗&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-社会民生", "via": "direct"},
+        # ★ RSSHub 镜像补充
         {"url": "{rsshub}/thepaper/featured",  "name": "澎湃新闻精选", "via": "rsshub"},
         {"url": "{rsshub}/people/xjp",         "name": "人民网", "via": "rsshub"},
         {"url": "{rsshub}/huanqiu/china",      "name": "环球网", "via": "rsshub"},
