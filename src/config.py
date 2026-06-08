@@ -88,29 +88,57 @@ RSS_SOURCES = {
         {"url": "{rsshub}/weibo/search/hot=就业招聘", "name": "微博就业", "via": "rsshub"},
     ],
     "workplace": [
+        # ★ 直连 RSS
         {"url": "https://www.huxiu.com/rss/0.xml", "name": "虎嗅网", "via": "direct"},
-        {"url": f"{GOOGLE_NEWS_BASE}/search?q=职场+工作+管理&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+        # ★ Google News 多角度搜索
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=职场&hl=zh-CN&gl=US&ceid=US:en",
          "name": "Google新闻-职场", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=工作+管理+创业&hl=zh-CN&gl=US&ceid=US:en",
+         "name": "Google新闻-工作管理", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=career+job+workplace&hl=en&gl=US&ceid=US:en",
+         "name": "Google News-workplace", "via": "direct"},
+        # ★ RSSHub 镜像
         {"url": "{rsshub}/woshipm/popular",    "name": "人人都是产品经理", "via": "rsshub"},
         {"url": "{rsshub}/zhihu/daily",        "name": "知乎日报", "via": "rsshub"},
+        {"url": "{rsshub}/huxiu/channel/职场", "name": "虎嗅职场", "via": "rsshub"},
     ],
     "food": [
-        {"url": f"{GOOGLE_NEWS_BASE}/search?q=美食+菜谱+烹饪&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+        # ★ Google News 多角度（中美双区搜索）
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=美食&hl=zh-CN&gl=US&ceid=US:en",
          "name": "Google新闻-美食", "via": "direct"},
-        {"url": "{rsshub}/xiachufang/popular", "name": "下厨房热门", "via": "rsshub"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=菜谱+烹饪+餐厅&hl=zh-CN&gl=US&ceid=US:en",
+         "name": "Google新闻-烹饪", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=food+recipe+cooking&hl=en&gl=US&ceid=US:en",
+         "name": "Google News-food", "via": "direct"},
+        # ★ RSSHub 镜像
+        {"url": "{rsshub}/xiachufang/popular",  "name": "下厨房热门", "via": "rsshub"},
         {"url": "{rsshub}/meishitianxia/tag/家常菜", "name": "美食天下", "via": "rsshub"},
+        {"url": "{rsshub}/douban/explore/美食", "name": "豆瓣美食", "via": "rsshub"},
     ],
     "travel": [
-        {"url": f"{GOOGLE_NEWS_BASE}/search?q=旅游+旅行+攻略&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+        # ★ Google News 多角度
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=旅游&hl=zh-CN&gl=US&ceid=US:en",
          "name": "Google新闻-旅游", "via": "direct"},
-        {"url": "{rsshub}/mafengwo/note",      "name": "马蜂窝游记", "via": "rsshub"},
-        {"url": "{rsshub}/qyer/recommend",     "name": "穷游网推荐", "via": "rsshub"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=旅行+攻略+景点&hl=zh-CN&gl=US&ceid=US:en",
+         "name": "Google新闻-旅行攻略", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=travel+tourism+destination&hl=en&gl=US&ceid=US:en",
+         "name": "Google News-travel", "via": "direct"},
+        # ★ RSSHub 镜像
+        {"url": "{rsshub}/mafengwo/note",       "name": "马蜂窝游记", "via": "rsshub"},
+        {"url": "{rsshub}/qyer/recommend",      "name": "穷游网推荐", "via": "rsshub"},
     ],
     "fitness": [
-        {"url": f"{GOOGLE_NEWS_BASE}/search?q=健身+运动+健康+减肥&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+        # ★ Google News 多角度
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=健身&hl=zh-CN&gl=US&ceid=US:en",
          "name": "Google新闻-健身", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=运动+减肥+健康+养生&hl=zh-CN&gl=US&ceid=US:en",
+         "name": "Google新闻-运动健康", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=fitness+exercise+health+workout&hl=en&gl=US&ceid=US:en",
+         "name": "Google News-fitness", "via": "direct"},
+        # ★ RSSHub 镜像
         {"url": "{rsshub}/zhihu/topic/19551207", "name": "知乎健身", "via": "rsshub"},
-        {"url": "{rsshub}/dxy/health",         "name": "丁香医生", "via": "rsshub"},
+        {"url": "{rsshub}/dxy/health",           "name": "丁香医生", "via": "rsshub"},
+        {"url": "{rsshub}/keep/latest",          "name": "Keep精选", "via": "rsshub"},
     ],
 }
 
