@@ -59,11 +59,16 @@ RSS_SOURCES = {
         {"url": "{rsshub}/huanqiu/china",      "name": "环球网", "via": "rsshub"},
     ],
     "world": [
-        {"url": "https://feeds.bbci.co.uk/zhongwen/simp/rss", "name": "BBC中文", "via": "direct"},
-        {"url": f"{GOOGLE_NEWS_BASE}/topics/CAAqJggKIiBDQkFTRWdvSUwyMHZNRGx1YlY4U0JYcG9MVlJYS0FBUAE?hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+        # ★ 直连 RSS，多重保险
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=国际新闻+世界&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
          "name": "Google新闻-国际", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=全球+外交+政治+冲突&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-全球政治", "via": "direct"},
+        {"url": "https://feeds.bbci.co.uk/zhongwen/simp/rss", "name": "BBC中文", "via": "direct"},
+        {"url": "https://rss.dw.com/rdf/rss-chi-all", "name": "德国之声中文", "via": "direct"},
+        # ★ RSSHub 镜像补充
         {"url": "{rsshub}/huanqiu/global",     "name": "环球网国际", "via": "rsshub"},
-        {"url": "{rsshub}/nytimes/dual",       "name": "纽约时报双语", "via": "rsshub"},
+        {"url": "{rsshub}/voa/chinese",        "name": "VOA中文", "via": "rsshub"},
     ],
     "finance": [
         # ★ 36氪直连 RSS
