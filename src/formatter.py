@@ -35,7 +35,7 @@ def _beijing_time() -> str:
 
 
 def _build_news_lines(news_list: list[dict], max_items: int = 5) -> str:
-    """构建新闻列表的 markdown 文本"""
+    """构建新闻列表的 markdown 文本，含日期标注"""
     if not news_list:
         return "> 今日暂无相关资讯，稍后更新 📌"
 
@@ -43,16 +43,19 @@ def _build_news_lines(news_list: list[dict], max_items: int = 5) -> str:
     for i, item in enumerate(news_list[:max_items], 1):
         title = item.get("title", "无标题").strip()
         url = item.get("url", "").strip()
-        source = item.get("source", "").strip()
+        published = item.get("published", "").strip()
 
         # 截断过长的标题
-        if len(title) > 50:
-            title = title[:48] + "..."
+        if len(title) > 48:
+            title = title[:46] + "..."
+
+        # 日期标记
+        date_tag = f" `{published}`" if published else ""
 
         if url:
-            lines.append(f"{i}. [{title}]({url})")
+            lines.append(f"{i}. [{title}]({url}){date_tag}")
         else:
-            lines.append(f"{i}. {title}")
+            lines.append(f"{i}. {title}{date_tag}")
 
     return "\n".join(lines)
 

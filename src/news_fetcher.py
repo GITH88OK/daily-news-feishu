@@ -7,7 +7,7 @@
 """
 import hashlib
 import re
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from difflib import SequenceMatcher
 
 import feedparser
@@ -53,14 +53,21 @@ def _title_hash(title: str) -> str:
     return hashlib.md5(title[:100].encode()).hexdigest()[:12]
 
 
-def _try_fetch_url(url: str) -> list[dict]:
+def _try_fetch_url(url: str, add_cache_buster: bool = False) -> list[dict]:
     """
     请求单个 URL 并解析 RSS/Atom
-    返回: [{"title", "url", "source", "summary"}, ...]
+    自动过滤超过48小时的旧闻，按日期降序排列
+    返回: [{"title", "url", "source", "summary", "published"}, ...]
     """
     try:
+        # Google News 自动加时间戳防缓存（避免返回旧闻）
+        fetch_url = url
+        if "news.google.com" in url:
+            sep = "&" if "?" in url else "?"
+            fetch_url = f"{url}{sep}_nocache={int(datetime.now().timestamp())}"
+
         resp = requests.get(
-            url, headers=HEADERS, timeout=REQUEST_TIMEOUT,
+            fetch_url, headers=HEADERS, timeout=REQUEST_TIMEOUT,
             allow_redirects=True
         )
         resp.raise_for_status()
@@ -69,7 +76,6 @@ def _try_fetch_url(url: str) -> list[dict]:
 
         # bozo=1 表示非标准 feed，但有 entries 就还能用
         if feed.bozo and not feed.entries:
-            # 静默失败，外层会尝试下一个源
             return []
 
         entries = []
@@ -98,14 +104,44 @@ def _try_fetch_url(url: str) -> list[dict]:
             if not source:
                 source = feed.feed.get("title", "")
 
+            # 发布日期（用于过滤旧闻）
+            published = ""
+            pub_dt = None
+            pub_parsed = item.get("published_parsed") or item.get("updated_parsed")
+            if pub_parsed:
+                try:
+                    pub_dt = datetime(*pub_parsed[:6], tzinfo=timezone.utc)
+                    published = pub_dt.strftime("%m-%d %H:%M")
+                except (ValueError, TypeError, OverflowError):
+                    pass
+
             entries.append({
                 "title": title,
                 "url": link,
                 "source": _strip_html(source),
                 "summary": summary,
+                "published": published,
+                "pub_dt": pub_dt,
             })
 
-        return entries
+        # ── 日期过滤：只保留最近48小时的新闻 ──
+        cutoff = datetime.now(timezone.utc) - timedelta(hours=48)
+        fresh = []
+        for e in entries:
+            if e["pub_dt"] is None:
+                # 没有日期的先保留（RSSHub等源可能没日期）
+                fresh.append(e)
+            elif e["pub_dt"] >= cutoff:
+                fresh.append(e)
+            # 超过48小时的丢弃
+
+        # 按日期降序（有日期的在前，没日期的在后）
+        fresh.sort(
+            key=lambda e: e.get("pub_dt") or datetime(2000, 1, 1, tzinfo=timezone.utc),
+            reverse=True
+        )
+
+        return fresh
 
     except requests.RequestException:
         return []
