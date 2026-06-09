@@ -352,7 +352,7 @@ def fetch_travel_news() -> list[dict]:
 
 def fetch_fitness_news() -> list[dict]:
     """💪 健身健康"""
-    return _fetch_category("fitness", use_keywords=True)
+    return _fetch_category("fitness", use_keywords=False)
 
 
 # ═══════════════════════════════════════════════════════════════

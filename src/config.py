@@ -103,13 +103,13 @@ RSS_SOURCES = {
         {"url": "{rsshub}/huxiu/channel/职场", "name": "虎嗅职场", "via": "rsshub"},
     ],
     "food": [
-        # ★ Google News 多角度（中美双区搜索）
-        {"url": f"{GOOGLE_NEWS_BASE}/search?q=美食&hl=zh-CN&gl=US&ceid=US:en",
+        # ★ Google News — 用最简单的中文词 + CN区
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=美食&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
          "name": "Google新闻-美食", "via": "direct"},
-        {"url": f"{GOOGLE_NEWS_BASE}/search?q=菜谱+烹饪+餐厅&hl=zh-CN&gl=US&ceid=US:en",
-         "name": "Google新闻-烹饪", "via": "direct"},
-        {"url": f"{GOOGLE_NEWS_BASE}/search?q=food+recipe+cooking&hl=en&gl=US&ceid=US:en",
-         "name": "Google News-food", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=吃&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-饮食", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=餐厅+菜&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-餐厅", "via": "direct"},
         # ★ RSSHub 镜像
         {"url": "{rsshub}/xiachufang/popular",  "name": "下厨房热门", "via": "rsshub"},
         {"url": "{rsshub}/meishitianxia/tag/家常菜", "name": "美食天下", "via": "rsshub"},
@@ -128,13 +128,13 @@ RSS_SOURCES = {
         {"url": "{rsshub}/qyer/recommend",      "name": "穷游网推荐", "via": "rsshub"},
     ],
     "fitness": [
-        # ★ Google News 多角度
-        {"url": f"{GOOGLE_NEWS_BASE}/search?q=健身&hl=zh-CN&gl=US&ceid=US:en",
+        # ★ Google News — CN区 + 最简单的中文词
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=健身&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
          "name": "Google新闻-健身", "via": "direct"},
-        {"url": f"{GOOGLE_NEWS_BASE}/search?q=运动+减肥+健康+养生&hl=zh-CN&gl=US&ceid=US:en",
-         "name": "Google新闻-运动健康", "via": "direct"},
-        {"url": f"{GOOGLE_NEWS_BASE}/search?q=fitness+exercise+health+workout&hl=en&gl=US&ceid=US:en",
-         "name": "Google News-fitness", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=运动&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-运动", "via": "direct"},
+        {"url": f"{GOOGLE_NEWS_BASE}/search?q=健康+减肥&hl=zh-CN&gl=CN&ceid=CN:zh-Hans",
+         "name": "Google新闻-健康减肥", "via": "direct"},
         # ★ RSSHub 镜像
         {"url": "{rsshub}/zhihu/topic/19551207", "name": "知乎健身", "via": "rsshub"},
         {"url": "{rsshub}/dxy/health",           "name": "丁香医生", "via": "rsshub"},
