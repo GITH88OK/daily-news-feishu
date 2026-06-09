@@ -1,0 +1,23 @@
+name: 保活（防止定时任务被禁用）
+
+on:
+  schedule:
+    # 每周一 UTC 2:00 自动跑一次
+    - cron: '0 2 * * 1'
+  workflow_dispatch:
+
+jobs:
+  keepalive:
+    runs-on: ubuntu-latest
+    steps:
+      - name: 📥 拉取代码
+        uses: actions/checkout@v4
+
+      - name: 🔄 更新保活标记
+        run: |
+          date > .keepalive
+          git config user.name "GitHub Actions Bot"
+          git config user.email "actions@github.com"
+          git add .keepalive
+          git diff --staged --quiet || git commit -m "chore: weekly keepalive $(date +%Y-%m-%d)"
+          git push
