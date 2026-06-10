@@ -1,14 +1,18 @@
 name: 每日新闻推送到飞书
 
 on:
-  # ── 定时触发：北京时间每日 9:00 (UTC 1:00) ──
+  # ── GitHub 定时触发（内置，不够可靠） ──
   schedule:
-    - cron: '0 1 * * *'
-    # 备用触发：9:30（防止 9:00 被 GitHub 跳过）
-    - cron: '30 1 * * *'
+    - cron: '0 1 * * *'       # 北京时间 9:00
+    - cron: '30 1 * * *'      # 9:30 备用
+    - cron: '0 2 * * *'       # 10:00 二次备用
 
   # ── 手动触发（测试用） ──
   workflow_dispatch:
+
+  # ── 外部 cron 服务触发（最可靠） ──
+  repository_dispatch:
+    types: [daily-push]
 
 jobs:
   push-news:
